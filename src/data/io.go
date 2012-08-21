@@ -80,32 +80,32 @@ func (pmap *PMap) unsafeSet(key IKey, stats *StatsChans) {
 }
 
 func (pmap *PMap) Set(key IKey, stats *StatsChans) {
-	lock := pmap.GetLock(key)
-	lock.Lock()
-	defer lock.Unlock()
+//	lock := pmap.GetLock(key)
+	pmap.mtx.Lock()
+	defer pmap.mtx.Unlock()
 	pmap.unsafeSet(key, stats)
 }
 
 func (pmap *PMap) Get(key IKey) *StatsChans {
-	lock := pmap.GetLock(key)
-	lock.Lock()
-	defer lock.Unlock()
+//	lock := pmap.GetLock(key)
+	pmap.mtx.Lock()
+	defer pmap.mtx.Unlock()
 	return pmap.unsafeGet(key)
 }
 
 func (pmap *PMap) Delete(key IKey) {
-	lock := pmap.GetLock(key)
-	lock.Lock()
-	defer lock.Unlock()
+	//lock := pmap.GetLock(key)
+	pmap.mtx.Lock()
+	defer pmap.mtx.Unlock()
 	//fmt.Println("DEL routine:", key.Show())
 	delete(pmap.StatsChans, key.Serial())
 }
 
 func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
 	//key is a pointer
-	lock := pmap.GetLock(key)
-	lock.Lock()
-	defer lock.Unlock()
+	//lock := pmap.GetLock(key)
+	pmap.mtx.Lock()
+	defer pmap.mtx.Unlock()
 
 	var stats_chans *StatsChans
 	stats_chans = pmap.unsafeGet(key)
