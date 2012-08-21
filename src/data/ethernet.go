@@ -39,11 +39,11 @@ func (key *EthKey) Show() string {
 }
 
 
-func (key *EthKey) Number() uint8 {
+func (key *EthKey) Number() uint16 {
 	if key.SrcMac <=  key.DstMac {
-		return uint8(key.SrcMac % uint64(LOCKNUM))
+		return uint16(key.SrcMac % uint64(LOCKNUM))
 	}
-	return uint8(key.DstMac %  uint64(LOCKNUM))
+	return uint16(key.DstMac %  uint64(LOCKNUM))
 }
 
 func (key *EthKey) Serial() string {

@@ -1,7 +1,7 @@
 package data
 
 import (
-	"fmt"
+//	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +16,7 @@ type IPacket interface {
 type IKey interface {
 	Show() string
 	Serial() string
-	Number() uint8
+	Number() uint16
 }
 
 // STAT
@@ -35,33 +35,34 @@ type StatsChans struct {
 
 const (
 	// Number of locks to share to access to the map
-	LOCKNUM uint8 = 255
+	LOCKNUM uint16 = 65535
 )
 
 // MAP
 type PMap struct {
 	once       sync.Once
-//	mtx        map[uint8]sync.Mutex
-	mtx        sync.Mutex
+	mtx        map[uint16]*sync.Mutex
+//	mtx        *sync.Mutex
 	StatsChans map[string]*StatsChans
 	timeout    time.Duration
 }
 
-func (pmap *PMap) GetLock(key IKey) sync.Mutex {
-	//	number := key.Number()
-	//	fmt.Printf("%s: Use number %d\n", key.Show(), number)
-	//	fmt.Printf(".")
-	//return pmap.mtx[key.Number()]
-	return pmap.mtx
+func (pmap *PMap) GetLock(key IKey) *sync.Mutex {
+//	number := key.Number()
+//	fmt.Printf("%s: Use number %d\n", key.Show(), number)
+//	fmt.Printf(".")
+	return pmap.mtx[key.Number()]
+//	return pmap.mtx
 }
 
 func (pmap *PMap) Init(timeout time.Duration) {
 	pmap.once.Do(func() {
-		pmap.StatsChans = make(map[string]*StatsChans, 2000000000)
-		// pmap.mtx = make(map[uint8]sync.Mutex, LOCKNUM)
-		// for i := uint8(0); i < LOCKNUM; i++ {
-		// 	pmap.mtx[i] = sync.Mutex{}
-		// }
+		pmap.StatsChans = make(map[string]*StatsChans, 2000)
+//		pmap.mtx = new(sync.Mutex)
+		pmap.mtx = make(map[uint16]*sync.Mutex, LOCKNUM)
+		for i := uint16(0); i < LOCKNUM; i++ {
+			pmap.mtx[i] = new(sync.Mutex)
+		}
 		pmap.timeout = timeout
 	})
 }
@@ -71,41 +72,44 @@ func (pmap *PMap) unsafeGet(key IKey) *StatsChans {
 }
 
 func (pmap *PMap) unsafeSet(key IKey, stats *StatsChans) {
-	defer func() {
-		if r := recover(); r != nil {
-			fmt.Printf("======>panic on: %s\n", key.Show())
-		}
-	}()
 	pmap.StatsChans[key.Serial()] = stats
 }
 
 func (pmap *PMap) Set(key IKey, stats *StatsChans) {
-//	lock := pmap.GetLock(key)
-	pmap.mtx.Lock()
-	defer pmap.mtx.Unlock()
+	lock := pmap.GetLock(key)
+	lock.Lock()
+	defer lock.Unlock()
+	// pmap.mtx.Lock()
+	// defer pmap.mtx.Unlock()
 	pmap.unsafeSet(key, stats)
 }
 
 func (pmap *PMap) Get(key IKey) *StatsChans {
-//	lock := pmap.GetLock(key)
-	pmap.mtx.Lock()
-	defer pmap.mtx.Unlock()
+	lock := pmap.GetLock(key)
+	lock.Lock()
+	defer lock.Unlock()
+	// pmap.mtx.Lock()
+	// defer pmap.mtx.Unlock()
 	return pmap.unsafeGet(key)
 }
 
 func (pmap *PMap) Delete(key IKey) {
-	//lock := pmap.GetLock(key)
-	pmap.mtx.Lock()
-	defer pmap.mtx.Unlock()
+	lock := pmap.GetLock(key)
+	lock.Lock()
+	defer lock.Unlock()
+	// pmap.mtx.Lock()
+	// defer pmap.mtx.Unlock()
 	//fmt.Println("DEL routine:", key.Show())
 	delete(pmap.StatsChans, key.Serial())
 }
 
 func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
 	//key is a pointer
-	//lock := pmap.GetLock(key)
-	pmap.mtx.Lock()
-	defer pmap.mtx.Unlock()
+	lock := pmap.GetLock(key)
+	lock.Lock()
+	defer lock.Unlock()
+	// pmap.mtx.Lock()
+	// defer pmap.mtx.Unlock()
 
 	var stats_chans *StatsChans
 	stats_chans = pmap.unsafeGet(key)

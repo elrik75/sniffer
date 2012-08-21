@@ -35,7 +35,7 @@ func main() {
 	pcapreader := create_reader(config)
 	quit_chan := make(chan bool)
 
-	go signalCatcher(pcapreader)
+//	go signalCatcher(pcapreader)
 	go readPackets(pcapreader, quit_chan)
 	controler(pcapreader, quit_chan)
 }

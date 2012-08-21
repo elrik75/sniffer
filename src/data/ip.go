@@ -38,11 +38,11 @@ func (key *Ipv4Key) Show() string {
 		key.SrcIp, key.DstIp, key.Protocol)
 }
 
-func (key *Ipv4Key) Number() uint8 {
+func (key *Ipv4Key) Number() uint16 {
 	if key.SrcIp <= key.DstIp {
-		return uint8(key.SrcIp % uint32(LOCKNUM))
+		return uint16(key.SrcIp % uint32(LOCKNUM))
 	}
-	return uint8(key.DstIp % uint32(LOCKNUM))
+	return uint16(key.DstIp % uint32(LOCKNUM))
 }
 
 func (key *Ipv4Key) Serial() string {
