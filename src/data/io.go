@@ -35,7 +35,7 @@ type StatsChans struct {
 
 const (
 	// Number of locks to share to access to the map
-	LOCKNUM uint16 = 65535
+	LOCKNUM uint16 = 128
 )
 
 // MAP

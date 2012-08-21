@@ -120,12 +120,17 @@ func create_reader(config map[string]string) *pcap.Pcap {
 
 func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
 	for pkt := pcapreader.Next(); pkt != nil; pkt = pcapreader.Next() {
-		ethpkt := data.ParseEthernet(data.ETHMAP, pkt)
-		if ethpkt.Type == 0x800 {
-			go data.ParseIpv4(data.IPv4MAP, ethpkt)
-		}
+		go launchParser(pkt)
 	}
 	quit_chan <- true
+}
+
+
+func launchParser(pkt *pcap.Packet) {
+	ethpkt := data.ParseEthernet(data.ETHMAP, pkt)
+	if ethpkt.Type == 0x800 {
+		go data.ParseIpv4(data.IPv4MAP, ethpkt)
+	}
 }
 
 func signalCatcher(pcapreader *pcap.Pcap) {

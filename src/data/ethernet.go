@@ -13,7 +13,7 @@ import (
 var ETHMAP *PMap
 
 const (
-	PAYLOAD_MAX = 512
+	PAYLOAD_MAX = 256
 )
 
 // PACKET
