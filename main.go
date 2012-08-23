@@ -35,7 +35,7 @@ func main() {
 	pcapreader := create_reader(config)
 	quit_chan := make(chan bool)
 
-//	go signalCatcher(pcapreader)
+	go signalCatcher(pcapreader)
 	go readPackets(pcapreader, quit_chan)
 	controler(pcapreader, quit_chan)
 }
@@ -150,12 +150,14 @@ MAIN:
 		select {
 		case <-quit_chan:
 			fmt.Print("\nEND\n")
+			time.Sleep(1000000000)
 			fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
 			for _, chans := range data.ETHMAP.StatsChans {
 				chans.Control <- "<kill>"
 			}
 			fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
-			for _, chans := range data.IPv4MAP.StatsChans {
+			for key, chans := range data.IPv4MAP.StatsChans {
+				fmt.Printf("=>send kill to %s\n", key)
 				chans.Control <- "<kill>"
 			}
 			fmt.Print("IP ends\n")
