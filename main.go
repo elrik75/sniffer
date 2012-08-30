@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/akrennmair/gopcap"
+	"pcap"
 
 	"data"
 )
@@ -156,8 +156,8 @@ MAIN:
 				chans.Control <- "<kill>"
 			}
 			fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
-			for key, chans := range data.IPv4MAP.StatsChans {
-				fmt.Printf("=>send kill to %s\n", key)
+			for _, chans := range data.IPv4MAP.StatsChans {
+				//fmt.Printf("=>send kill to %s\n", key)
 				chans.Control <- "<kill>"
 			}
 			fmt.Print("IP ends\n")

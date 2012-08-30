@@ -3,9 +3,7 @@ package data
 import (
 	"fmt"
 	"encoding/binary"
-
-	"github.com/akrennmair/gopcap"
-
+	"pcap"
 	"utils"
 )
 
@@ -15,16 +13,6 @@ var ETHMAP *PMap
 const (
 	PAYLOAD_MAX = 256
 )
-
-// PACKET
-type EthPacket struct {
-	pcap.Packet
-	Vlan int
-}
-func (pkt *EthPacket) Show() string {
-	return fmt.Sprintf("src[%16x] dst[%16x] Type[%4x]",
-		pkt.SrcMac, pkt.DestMac, pkt.Type)
-}
 
 // MAP KEY
 type EthKey struct {
@@ -82,7 +70,7 @@ func (ethstat *EthStat) Reset () {
 
 func (ethstat *EthStat) AppendStat (key IKey, pkt IPacket) {
 	ethkey := key.(*EthKey)
-	ethpkt := pkt.(*EthPacket)
+	ethpkt := pkt.(*pcap.Packet)
 	if ethpkt.SrcMac == ethkey.SrcMac {
 		ethstat.PayloadSizeSrc += uint64(len(ethpkt.Payload))
 		ethstat.PacketsSrc += 1
@@ -94,7 +82,7 @@ func (ethstat *EthStat) AppendStat (key IKey, pkt IPacket) {
 
 
 // PACKET PARSER
-func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *EthPacket {
+func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *pcap.Packet {
 
 	pkt.DestMac = utils.DecodeMac(pkt.Data[0:6])
 	pkt.SrcMac = utils.DecodeMac(pkt.Data[6:12])
@@ -108,9 +96,8 @@ func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *EthPacket {
 		vlan = int(binary.BigEndian.Uint16(pkt.Data[14:16]))
 		shift = 4
 	}
-
+	pkt.Vlan = vlan
 	pkt.Type = int(binary.BigEndian.Uint16(pkt.Data[shift+12:shift+14]))
-	pkt.Len = uint32(len(pkt.Data))
 
 	max_size := utils.MinInt(len(pkt.Data), PAYLOAD_MAX+1)
 	pkt.Payload = make([]byte, PAYLOAD_MAX)
@@ -125,7 +112,6 @@ func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *EthPacket {
 		stats := new(EthStat)
 		go Handler(ethmap, &key, stats)
 	}
-	ethpkt :=  &EthPacket{*pkt, vlan}
-	chans.Inputs <-ethpkt
-	return ethpkt
+	chans.Inputs <-pkt
+	return pkt
 }

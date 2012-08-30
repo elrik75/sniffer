@@ -115,14 +115,14 @@ func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
 func Handler(pmap *PMap, key IKey, stats IStat) {
 
 	chans := pmap.Get(key)
-	lasttime := clock.GetTime()
+	timout := time.NewTicker(pmap.timeout)
 
 MAIN:
 	for {
 		select {
 		case packet := <-chans.Inputs:
 			timout.Stop()
-			lasttime = 
+			timout = time.NewTicker(pmap.timeout)
 			stats.AppendStat(key, packet)
 
 		case control := <-chans.Control:
@@ -133,7 +133,7 @@ MAIN:
 				stats.Reset()
 			}
 			if strings.Contains(control, "<timeout>") {
-				
+				;
 			}
 			if strings.Contains(control, "<kill>") {
 				pmap.Delete(key)

@@ -3,7 +3,7 @@ package data
 import (
 	"fmt"
 	"encoding/binary"
-
+	"pcap"
 )
 
 // GLOBAL ETH MAP
@@ -91,10 +91,10 @@ func (ipstat *IpStat) AppendStat (key IKey, pkt IPacket) {
 }
 
 // PACKET PARSER
-func ParseIpv4(ipmap *PMap, pkt *EthPacket) {
+func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
 	ip := new(Ipv4Packet)
 	//	fmt.Println(pkt.Packet.Payload)
-	ip.Tos = pkt.Packet.Payload[1]
+	ip.Tos = pkt.Payload[1]
 	ip.Length = binary.BigEndian.Uint16(pkt.Payload[2:4])
 	ip.Protocol = pkt.Payload[9]
 	ip.Checksum = binary.BigEndian.Uint16(pkt.Payload[10:12])
