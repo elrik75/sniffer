@@ -7,6 +7,12 @@ func MinInt (x int, y int) int {
 	return y
 }
 
+func MinUInt (x uint, y uint) uint {
+	if x < y {
+		return x
+	}
+	return y
+}
 
 func DecodeMac(pkt []byte) uint64 {
 	mac := uint64(0)
