@@ -151,6 +151,10 @@ func (pkt *Packet) Show() string {
 		pkt.SrcMac, pkt.DestMac, pkt.Type)
 }
 
+func (pkt *Packet) GetTime() time.Time {
+	return pkt.Time
+}
+
 // Openlive opens a device and returns a *Pcap handler
 func Openlive(device string, snaplen int32, promisc bool, timeout_ms int32) (handle *Pcap, err error) {
 	var buf *C.char

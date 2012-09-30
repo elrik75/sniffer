@@ -10,9 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	// internal
 	"pcap"
-
 	"data"
+	"clock"
 )
 
 var (
@@ -42,10 +43,11 @@ func main() {
 
 func init_maps() {
 	data.ETHMAP = new(data.PMap)
-	seconds_120 := time.Duration(1800 * math.Pow(10, 9))
+	seconds_120 := time.Duration(10 * math.Pow(10, 9))
 	data.ETHMAP.Init(seconds_120)
 	data.IPv4MAP = new(data.PMap)
 	data.IPv4MAP.Init(seconds_120)
+	clock.InitClock()
 }
 
 func get_opts() map[string]string {
@@ -128,6 +130,7 @@ func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
 
 func launchParser(pkt *pcap.Packet) {
 	ethpkt := data.ParseEthernet(data.ETHMAP, pkt)
+	clock.Clock.Set(ethpkt.Time)
 	if ethpkt.Type == 0x800 {
 		go data.ParseIpv4(data.IPv4MAP, ethpkt)
 	}

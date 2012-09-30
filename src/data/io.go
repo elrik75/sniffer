@@ -1,15 +1,19 @@
 package data
 
 import (
-//	"fmt"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
+
+	// internal
+	"clock"
 )
 
 // PACKET
 type IPacket interface {
-	Show() string
+	Show()    string
+	GetTime() time.Time
 }
 
 // KEY
@@ -115,15 +119,19 @@ func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
 func Handler(pmap *PMap, key IKey, stats IStat) {
 
 	chans := pmap.Get(key)
-	timout := time.NewTicker(pmap.timeout)
+	// check if timeout
+	timoutcheck := time.NewTicker(pmap.timeout / 10)
+	var lasttime time.Time
 
 MAIN:
 	for {
 		select {
+		// the handlar is init with a first input
 		case packet := <-chans.Inputs:
-			timout.Stop()
-			timout = time.NewTicker(pmap.timeout)
+			timoutcheck.Stop()
+			timoutcheck = time.NewTicker(pmap.timeout)
 			stats.AppendStat(key, packet)
+			lasttime = packet.GetTime()
 
 		case control := <-chans.Control:
 			if strings.Contains(control, "<dump>") {
@@ -140,8 +148,13 @@ MAIN:
 				break MAIN
 			}
 
-		case <-timout.C:
-			pmap.Delete(key)
+		case <-timoutcheck.C:
+			fmt.Println("Try timeout of ", key.Show(), " since ", lasttime,
+				" and ", clock.Clock.Get())
+			if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
+				pmap.Delete(key)
+				fmt.Println(" --> timeout of ", key.Show())
+			}
 			break MAIN
 		}
 	}

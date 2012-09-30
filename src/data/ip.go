@@ -3,6 +3,9 @@ package data
 import (
 	"fmt"
 	"encoding/binary"
+	"time"
+
+	//internal
 	"pcap"
 )
 
@@ -11,6 +14,7 @@ var IPv4MAP *PMap
 
 // PACKET
 type Ipv4Packet struct {
+	EthPacket  *pcap.Packet
 	Protocol   uint8
 	Checksum   uint16
 	SrcIp      uint32
@@ -24,6 +28,10 @@ type Ipv4Packet struct {
 func (pkt *Ipv4Packet) Show() string {
 	return fmt.Sprintf("src[%16x] dst[%16x] Protocol[%4x]",
 		pkt.SrcIp, pkt.DstIp, pkt.Protocol)
+}
+
+func (pkt *Ipv4Packet) GetTime() time.Time {
+	return pkt.EthPacket.Time
 }
 
 // MAP KEY
@@ -94,6 +102,7 @@ func (ipstat *IpStat) AppendStat (key IKey, pkt IPacket) {
 func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
 	ip := new(Ipv4Packet)
 	//	fmt.Println(pkt.Packet.Payload)
+	ip.EthPacket = pkt
 	ip.Tos = pkt.Payload[1]
 	ip.Length = binary.BigEndian.Uint16(pkt.Payload[2:4])
 	ip.Protocol = pkt.Payload[9]
