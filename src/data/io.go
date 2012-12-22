@@ -144,19 +144,21 @@ MAIN:
 				;
 			}
 			if strings.Contains(control, "<kill>") {
+				// fmt.Println("KILL ", key.Show())
 				pmap.Delete(key)
 				break MAIN
 			}
 
 		case <-timoutcheck.C:
-			fmt.Println("Try timeout of ", key.Show(), " since ", lasttime,
-				" and ", clock.Clock.Get())
+			//fmt.Println("Try timeout of ", key.Show(), " since ", lasttime,
+			//	" and ", clock.Clock.Get())
 			if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
 				pmap.Delete(key)
 				fmt.Println(" --> timeout of ", key.Show())
+				break MAIN
 			}
-			break MAIN
 		}
 	}
+	// fmt.Println("Close the chan of ", key.Show())
 	close(chans.Control) 
 }

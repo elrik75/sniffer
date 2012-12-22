@@ -1,3 +1,0 @@
--> set GOMAXPROCS to 4 or more
--> launch this on a big pcap file : GOMAXPROCS=8 ./main -r bigfile.pcap
--> error.txt an example or the trace you will get.
