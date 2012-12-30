@@ -1,5 +1,8 @@
 package pcap
 
+/* copyright from https://github.com/akrennmair/gopcap */
+/* just modify the Packet structure */
+
 /*
 #cgo LDFLAGS: -lpcap
 #include <stdlib.h>
