@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"math"
 	"os"
 	"os/signal"
@@ -17,7 +18,7 @@ import (
 )
 
 var (
-	DUMPPERIOD = time.Duration(1800 * math.Pow(10, 9))
+	DUMPPERIOD = time.Duration(10 * math.Pow(10, 9))
 )
 
 func main() {
@@ -43,10 +44,10 @@ func main() {
 
 func init_maps() {
 	data.ETHMAP = new(data.PMap)
-	seconds_120 := time.Duration(10 * math.Pow(10, 9))
-	data.ETHMAP.Init(seconds_120)
+	seconds_60 := time.Duration(60 * math.Pow(10, 9))
+	data.ETHMAP.Init(seconds_60)
 	data.IPv4MAP = new(data.PMap)
-	data.IPv4MAP.Init(seconds_120)
+	data.IPv4MAP.Init(seconds_60)
 	clock.InitClock()
 }
 
@@ -153,7 +154,7 @@ MAIN:
 		select {
 		case <-quit_chan:
 			fmt.Print("\nEND\n")
-			time.Sleep(1000000000)
+			time.Sleep(100000000)
 			fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
 			for _, chans := range data.ETHMAP.StatsChans {
 				chans.Control <- "<kill>"
@@ -167,13 +168,15 @@ MAIN:
 			break MAIN
 
 		case <-timer.C:
-			fmt.Print("Time to dump:\n")
+			fmt.Print("Time to dump\n")
+			var fd *os.File
 			for _, chans := range data.ETHMAP.StatsChans {
 				chans.Control <- "<dump><reset>"
-				<-chans.Results
-				//result := <-chans.Results
-				//fmt.Printf(" * %s\n  %s\n", k, result.Show())
+				fd = create_file("eth")
+				result := <-chans.Results
+				write_stats(fd, result)
 			}
+			close_file(fd)
 			for _, chans := range data.IPv4MAP.StatsChans {
 				chans.Control <- "<dump><reset>"
 				<-chans.Results
@@ -184,4 +187,39 @@ MAIN:
 		}
 	}
 	fmt.Print("controler ends\n")
+}
+
+
+func create_file(datatype string) *os.File {
+	time := clock.Clock.GetForDump(DUMPPERIOD)
+	filename := fmt.Sprintf("dump_%s_%d.csv", datatype, time)
+	fmt.Println("Open", filename)
+	file, ok := os.OpenFile(filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0664)
+	if ok != nil {
+		fmt.Println("Dump File Error:", ok)
+	} else {
+		return file
+	}
+	return nil
+}
+
+
+func write_stats(file *os.File, stat data.IStat) {
+	if file == nil { return }
+
+	var txt string
+	switch s := stat.(type) {
+		case *data.EthStat:
+		txt = fmt.Sprintf("%d|%d|%d|%d\n",
+			s.PacketsSrc, s.PacketsDst,
+			s.PayloadSizeSrc, s.PayloadSizeDst)
+		io.WriteString(file, txt)
+	}
+}
+
+
+func close_file(file *os.File) {
+	if file != nil {
+		file.Close()
+	}
 }

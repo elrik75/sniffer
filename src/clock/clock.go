@@ -20,6 +20,11 @@ func (c *clock) Get() (time.Time) {
 	return c.time
 }
 
+func (c *clock) GetForDump(dump_duration time.Duration) int64 {
+	time := c.Get().Unix()
+	return time - time % int64(dump_duration.Seconds())
+}
+
 func (c *clock) Set(t time.Time) {
 	c.mtx.Lock()
 	defer c.mtx.Unlock()

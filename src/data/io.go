@@ -1,7 +1,7 @@
 package data
 
 import (
-	"fmt"
+	//"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -120,7 +120,7 @@ func Handler(pmap *PMap, key IKey, stats IStat) {
 
 	chans := pmap.Get(key)
 	// check if timeout
-	timoutcheck := time.NewTicker(pmap.timeout / 10)
+	timoutcheck := time.NewTicker(pmap.timeout / 2)
 	var lasttime time.Time
 
 MAIN:
@@ -150,15 +150,12 @@ MAIN:
 			}
 
 		case <-timoutcheck.C:
-			//fmt.Println("Try timeout of ", key.Show(), " since ", lasttime,
-			//	" and ", clock.Clock.Get())
 			if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
 				pmap.Delete(key)
-				fmt.Println(" --> timeout of ", key.Show())
+				//fmt.Println(" --> timeout of ", key.Show())
 				break MAIN
 			}
 		}
 	}
-	// fmt.Println("Close the chan of ", key.Show())
 	close(chans.Control) 
 }
