@@ -126,7 +126,7 @@ func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
 	timebegin := time.Now()
 	for pkt := pcapreader.Next(); pkt != nil; pkt = pcapreader.Next() {
 		count += 1
-		if len(data.IPv4MAP.StatsChans) > 20000 {
+		if len(data.IPv4MAP.StatsChans) > 200000 {
 			launchParser(pkt)
 		} else {
 			go launchParser(pkt)
@@ -136,7 +136,7 @@ func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
 			timebegin = time.Now()
 		}
 	}
-	fmt.Print("quit_chan<-true\n")
+	fmt.Print("Nothing more to read\n")
 	quit_chan <- true
 }
 
@@ -160,6 +160,7 @@ func signalCatcher(pcapreader *pcap.Pcap) {
 func controler(pcapreader *pcap.Pcap, quit_chan chan bool) {
 	timer := time.NewTicker(DUMPPERIOD)
 	defer timer.Stop()
+	timebegin := time.Now()
 
 MAIN:
 	for {
@@ -199,17 +200,16 @@ MAIN:
 			}
 			close_file(fd)
 			pcapreader.Paused = false
-			fmt.Print("<< END DUMPS\n")
+			fmt.Print("<< END DUMPS\n\n")
 		}
 	}
-	fmt.Print("controler ends\n")
+	fmt.Println("controler ends,", time.Now().Sub(timebegin))
 }
 
 
 func create_file(datatype string) *os.File {
 	time := clock.Clock.GetForDump(DUMPPERIOD)
 	filename := fmt.Sprintf("dump_%s_%d.csv", datatype, time)
-	fmt.Println("Open", filename)
 	file, ok := os.OpenFile(filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0664)
 	if ok != nil {
 		fmt.Println("Dump File Error:", ok)
