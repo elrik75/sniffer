@@ -23,20 +23,32 @@ import (
 	"net"
 	"fmt"
 )
-import "utils"
 
 const (
 	ERRBUF_SIZE = 256
-	PAYLOAD_MAX uint = 256
 )
 
 // PCAP reader
 
 type Pcap struct {
 	cptr *C.pcap_t
+	Paused bool
 }
 
 func (p *Pcap) Next() (pkt *Packet) { 
+	paused := false
+	if p.Paused {
+		fmt.Print("reader paused\n")
+		paused = true
+	}
+	for p.Paused {
+		time.Sleep(1000000000)
+	}
+
+	if paused {
+		fmt.Print("reader unpaused\n")
+		paused = false
+	}
 	rv, _ := p.NextEx()
 	return rv
 }
@@ -59,12 +71,9 @@ func (p *Pcap) NextEx() (pkt *Packet, result int32) {
 	pkt.Time = time.Unix(int64(pkthdr.ts.tv_sec), int64(pkthdr.ts.tv_usec))
 	pkt.Caplen = uint32(pkthdr.caplen)
 	pkt.Len = uint32(pkthdr.len)
+	pkt.Data = make([]byte, pkthdr.caplen)
 
-	max_size := utils.MinUInt(uint(pkthdr.caplen), PAYLOAD_MAX+1)
-	pkt.Data = make([]byte, max_size)
-	pkt.Payload = pkt.Data
-
-	for i := uint(0); i < max_size; i++ {
+	for i := uint32(0); i < pkt.Caplen; i++ {
 		pkt.Data[i] = *(*byte)(unsafe.Pointer(uintptr(buf) + uintptr(i)))
 	}
 	return
@@ -163,6 +172,7 @@ func Openlive(device string, snaplen int32, promisc bool, timeout_ms int32) (han
 	var buf *C.char
 	buf = (*C.char)(C.calloc(ERRBUF_SIZE, 1))
 	h := new(Pcap)
+	h.Paused = false
 	var pro int32
 	if promisc {
 		pro = 1
@@ -187,6 +197,7 @@ func Openoffline(file string) (handle *Pcap, err error) {
 	var buf *C.char
 	buf = (*C.char)(C.calloc(ERRBUF_SIZE, 1))
 	h := new(Pcap)
+	h.Paused = false
 
 	cf := C.CString(file)
 	defer C.free(unsafe.Pointer(cf))

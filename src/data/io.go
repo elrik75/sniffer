@@ -1,7 +1,7 @@
 package data
 
 import (
-	//"fmt"
+//	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -106,6 +106,7 @@ func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
 	if stats_chans != nil {
 		return false, stats_chans
 	}
+	//fmt.Println(key.Show())
 
 	data_chan := make(chan IPacket, 8)
 	result_chan := make(chan IStat, 8)
@@ -120,12 +121,21 @@ func Handler(pmap *PMap, key IKey, stats IStat) {
 
 	chans := pmap.Get(key)
 	// check if timeout
-	timoutcheck := time.NewTicker(pmap.timeout / 2)
+	//fmt.Println(pmap.timeout)
+	timoutcheck := time.NewTicker(pmap.timeout/2)
 	var lasttime time.Time
 
 MAIN:
 	for {
 		select {
+
+		case <-timoutcheck.C:
+			if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
+				pmap.Delete(key)
+				//fmt.Print(".")
+				break MAIN
+			}
+
 		// the handlar is init with a first input
 		case packet := <-chans.Inputs:
 			timoutcheck.Stop()
@@ -149,12 +159,6 @@ MAIN:
 				break MAIN
 			}
 
-		case <-timoutcheck.C:
-			if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
-				pmap.Delete(key)
-				//fmt.Println(" --> timeout of ", key.Show())
-				break MAIN
-			}
 		}
 	}
 	close(chans.Control) 

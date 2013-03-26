@@ -122,9 +122,21 @@ func create_reader(config map[string]string) *pcap.Pcap {
 }
 
 func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
+	count := 0
+	timebegin := time.Now()
 	for pkt := pcapreader.Next(); pkt != nil; pkt = pcapreader.Next() {
-		go launchParser(pkt)
+		count += 1
+		if len(data.IPv4MAP.StatsChans) > 20000 {
+			launchParser(pkt)
+		} else {
+			go launchParser(pkt)
+		}
+		if count % 1000000 == 0 {
+			fmt.Println("num pkts=", count, "in", time.Now().Sub(timebegin))
+			timebegin = time.Now()
+		}
 	}
+	fmt.Print("quit_chan<-true\n")
 	quit_chan <- true
 }
 
@@ -154,36 +166,40 @@ MAIN:
 		select {
 		case <-quit_chan:
 			fmt.Print("\nEND\n")
-			time.Sleep(100000000)
 			fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
 			for _, chans := range data.ETHMAP.StatsChans {
 				chans.Control <- "<kill>"
 			}
 			fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
 			for _, chans := range data.IPv4MAP.StatsChans {
-				//fmt.Printf("=>send kill to %s\n", key)
 				chans.Control <- "<kill>"
 			}
 			fmt.Print("IP ends\n")
 			break MAIN
 
 		case <-timer.C:
-			fmt.Print("Time to dump\n")
+			pcapreader.Paused = true
+			fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
+			fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
+			fmt.Print(">> DUMP ETH\n")
 			var fd *os.File
+			fd = create_file("eth")
 			for _, chans := range data.ETHMAP.StatsChans {
 				chans.Control <- "<dump><reset>"
-				fd = create_file("eth")
 				result := <-chans.Results
 				write_stats(fd, result)
 			}
 			close_file(fd)
+			fmt.Print(">> DUMP IP\n")
+			fd = create_file("ipv4")
 			for _, chans := range data.IPv4MAP.StatsChans {
 				chans.Control <- "<dump><reset>"
-				<-chans.Results
-				//result := <-chans.Results
-				//fmt.Printf(" * %s\n  %s\n", k, result.Show())
+				result := <-chans.Results
+				write_stats(fd, result)
 			}
-			fmt.Print("\n")
+			close_file(fd)
+			pcapreader.Paused = false
+			fmt.Print("<< END DUMPS\n")
 		}
 	}
 	fmt.Print("controler ends\n")
@@ -209,11 +225,18 @@ func write_stats(file *os.File, stat data.IStat) {
 
 	var txt string
 	switch s := stat.(type) {
-		case *data.EthStat:
+	case *data.EthStat:
 		txt = fmt.Sprintf("%d|%d|%d|%d\n",
 			s.PacketsSrc, s.PacketsDst,
 			s.PayloadSizeSrc, s.PayloadSizeDst)
 		io.WriteString(file, txt)
+	case *data.IpStat:
+		txt = fmt.Sprintf("%d|%d|%d|%d\n",
+			s.PacketsSrc, s.PacketsDst,
+			s.PayloadSizeSrc, s.PayloadSizeDst)
+		io.WriteString(file, txt)
+	default:
+		fmt.Print("unexpected type %T", s)
 	}
 }
 

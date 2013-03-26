@@ -41,9 +41,18 @@ type Ipv4Key struct {
 	DstIp      uint32
 }
 
+func IpInt2Str(ip uint32) string {
+	return fmt.Sprintf("%d.%d.%d.%d",
+		byte(ip >> 24),
+		byte(ip >> 16),
+		byte(ip >> 8),
+		byte(ip),
+	)
+}
+
 func (key *Ipv4Key) Show() string {
-	return fmt.Sprintf("IPv4 src[%16x] dst[%16x] Protocol[%4x]",
-		key.SrcIp, key.DstIp, key.Protocol)
+	return fmt.Sprintf("IPv4 src[%16x=%s] dst[%s] Protocol[%4x]",
+		key.SrcIp, IpInt2Str(key.SrcIp), IpInt2Str(key.DstIp), key.Protocol)
 }
 
 func (key *Ipv4Key) Number() uint16 {
@@ -101,7 +110,8 @@ func (ipstat *IpStat) AppendStat (key IKey, pkt IPacket) {
 // PACKET PARSER
 func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
 	ip := new(Ipv4Packet)
-	//	fmt.Println(pkt.Packet.Payload)
+	//fmt.Println(pkt.Payload)
+
 	ip.EthPacket = pkt
 	ip.Tos = pkt.Payload[1]
 	ip.Length = binary.BigEndian.Uint16(pkt.Payload[2:4])
@@ -116,6 +126,7 @@ func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
 	is_new, chans := ipmap.InitValue(&key)
 	if is_new {
 		//fmt.Println("NEW routine:", key.Show())
+
 		stats := new(IpStat)
 		go Handler(ipmap, &key, stats)
 	}

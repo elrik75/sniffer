@@ -99,10 +99,10 @@ func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *pcap.Packet {
 	pkt.Vlan = vlan
 	pkt.Type = int(binary.BigEndian.Uint16(pkt.Data[shift+12:shift+14]))
 
-//	max_size := utils.MinInt(len(pkt.Data), PAYLOAD_MAX+1)
-//	pkt.Payload = make([]byte, PAYLOAD_MAX)
-//	copy(pkt.Payload, pkt.Data[shift+14:max_size])
-//	pkt.Data = nil
+	max_size := utils.MinInt(len(pkt.Data), PAYLOAD_MAX+1)
+	pkt.Payload = make([]byte, PAYLOAD_MAX)
+	copy(pkt.Payload, pkt.Data[shift+14:max_size])
+	pkt.Data = nil
 	//fmt.Println(pkt.Show())
 	key := EthKey{pkt.Type, pkt.SrcMac, pkt.DestMac}
 
