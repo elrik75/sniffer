@@ -17,10 +17,6 @@ import (
 	"clock"
 )
 
-var (
-	DUMPPERIOD = time.Duration(10 * math.Pow(10, 9))
-)
-
 func main() {
 	fmt.Printf("pcap version: %s\n", pcap.Version())
 	config := get_opts()
@@ -158,14 +154,14 @@ func signalCatcher(pcapreader *pcap.Pcap) {
 }
 
 func controler(pcapreader *pcap.Pcap, quit_chan chan bool) {
-	timer := time.NewTicker(DUMPPERIOD)
-	defer timer.Stop()
 	timebegin := time.Now()
 
 MAIN:
 	for {
 		select {
+
 		case <-quit_chan:
+
 			fmt.Print("\nEND\n")
 			fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
 			for _, chans := range data.ETHMAP.StatsChans {
@@ -178,10 +174,11 @@ MAIN:
 			fmt.Print("IP ends\n")
 			break MAIN
 
-		case <-timer.C:
+		case <-clock.Clock.DumpChan:
+
+			dumpbegin := time.Now()
 			pcapreader.Paused = true
 			fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
-			fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
 			fmt.Print(">> DUMP ETH\n")
 			var fd *os.File
 			fd = create_file("eth")
@@ -191,6 +188,8 @@ MAIN:
 				write_stats(fd, result)
 			}
 			close_file(fd)
+
+			fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
 			fmt.Print(">> DUMP IP\n")
 			fd = create_file("ipv4")
 			for _, chans := range data.IPv4MAP.StatsChans {
@@ -200,7 +199,8 @@ MAIN:
 			}
 			close_file(fd)
 			pcapreader.Paused = false
-			fmt.Print("<< END DUMPS\n\n")
+
+			fmt.Println("<< END DUMPS ", time.Now().Sub(dumpbegin), "\n")
 		}
 	}
 	fmt.Println("controler ends,", time.Now().Sub(timebegin))
@@ -208,7 +208,7 @@ MAIN:
 
 
 func create_file(datatype string) *os.File {
-	time := clock.Clock.GetForDump(DUMPPERIOD)
+	time := clock.Clock.GetForDump()
 	filename := fmt.Sprintf("dump_%s_%d.csv", datatype, time)
 	file, ok := os.OpenFile(filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0664)
 	if ok != nil {
