@@ -177,30 +177,30 @@ MAIN:
 		case <-clock.Clock.DumpChan:
 
 			dumpbegin := time.Now()
+
 			pcapreader.Paused = true
 			fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
-			fmt.Print(">> DUMP ETH\n")
 			var fd *os.File
 			fd = create_file("eth")
-			for _, chans := range data.ETHMAP.StatsChans {
-				chans.Control <- "<dump><reset>"
+			for _, chans := range data.ETHMAP.GetAllStats() {
+				chans.Control <- "<dump><reset><timeout>"
 				result := <-chans.Results
 				write_stats(fd, result)
 			}
 			close_file(fd)
 
 			fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
-			fmt.Print(">> DUMP IP\n")
 			fd = create_file("ipv4")
-			for _, chans := range data.IPv4MAP.StatsChans {
-				chans.Control <- "<dump><reset>"
+			for _, chans := range data.IPv4MAP.GetAllStats() {
+				chans.Control <- "<dump><reset><timeout>"
 				result := <-chans.Results
 				write_stats(fd, result)
 			}
 			close_file(fd)
 			pcapreader.Paused = false
 
-			fmt.Println("<< END DUMPS ", time.Now().Sub(dumpbegin), "\n")
+			fmt.Println("<< END DUMPS ", time.Now().Sub(dumpbegin),
+				clock.Clock.Get(), "\n")
 		}
 	}
 	fmt.Println("controler ends,", time.Now().Sub(timebegin))

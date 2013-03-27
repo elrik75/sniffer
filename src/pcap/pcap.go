@@ -38,7 +38,7 @@ type Pcap struct {
 func (p *Pcap) Next() (pkt *Packet) { 
 	paused := false
 	if p.Paused {
-		fmt.Print("(reader paused)\n")
+		//fmt.Print("(reader paused)\n")
 		paused = true
 	}
 	for p.Paused {
@@ -46,7 +46,7 @@ func (p *Pcap) Next() (pkt *Packet) {
 	}
 
 	if paused {
-		fmt.Print("(reader unpaused)\n")
+		//fmt.Print("(reader unpaused)\n")
 		paused = false
 	}
 	rv, _ := p.NextEx()

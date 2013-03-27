@@ -39,28 +39,25 @@ type StatsChans struct {
 
 const (
 	// Number of locks to share to access to the map
-	LOCKNUM uint16 = 128
+	LOCKNUM uint16 = 1
 )
 
 // MAP
 type PMap struct {
 	once       sync.Once
-	mtx        map[uint16]*sync.Mutex
+	mtx        *sync.Mutex
 	StatsChans map[string]*StatsChans
 	timeout    time.Duration
 }
 
-func (pmap *PMap) GetLock(key IKey) *sync.Mutex {
-	return pmap.mtx[key.Number()]
+func (pmap *PMap) GetLock() *sync.Mutex {
+	return pmap.mtx
 }
 
 func (pmap *PMap) Init(timeout time.Duration) {
 	pmap.once.Do(func() {
 		pmap.StatsChans = make(map[string]*StatsChans, 2000)
-		pmap.mtx = make(map[uint16]*sync.Mutex, LOCKNUM)
-		for i := uint16(0); i < LOCKNUM; i++ {
-			pmap.mtx[i] = new(sync.Mutex)
-		}
+		pmap.mtx = new(sync.Mutex)
 		pmap.timeout = timeout
 	})
 }
@@ -74,21 +71,28 @@ func (pmap *PMap) unsafeSet(key IKey, stats *StatsChans) {
 }
 
 func (pmap *PMap) Set(key IKey, stats *StatsChans) {
-	lock := pmap.GetLock(key)
+	lock := pmap.GetLock()
 	lock.Lock()
 	defer lock.Unlock()
 	pmap.unsafeSet(key, stats)
 }
 
 func (pmap *PMap) Get(key IKey) *StatsChans {
-	lock := pmap.GetLock(key)
+	lock := pmap.GetLock()
 	lock.Lock()
 	defer lock.Unlock()
 	return pmap.unsafeGet(key)
 }
 
+func (pmap *PMap) GetAllStats() map[string]*StatsChans {
+	lock := pmap.GetLock()
+	lock.Lock()
+	defer lock.Unlock()
+	return pmap.StatsChans
+}
+
 func (pmap *PMap) Delete(key IKey) {
-	lock := pmap.GetLock(key)
+	lock := pmap.GetLock()
 	lock.Lock()
 	defer lock.Unlock()
 	delete(pmap.StatsChans, key.Serial())
@@ -96,7 +100,7 @@ func (pmap *PMap) Delete(key IKey) {
 
 func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
 	//key is a pointer
-	lock := pmap.GetLock(key)
+	lock := pmap.GetLock()
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -122,41 +126,44 @@ func Handler(pmap *PMap, key IKey, stats IStat) {
 	chans := pmap.Get(key)
 	// check if timeout
 	//fmt.Println(pmap.timeout)
-	timoutcheck := time.NewTicker(pmap.timeout/2)
+//	timoutcheck := time.NewTicker(pmap.timeout/2)
 	var lasttime time.Time
 
 MAIN:
 	for {
 		select {
 
-		case <-timoutcheck.C:
-			if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
-				pmap.Delete(key)
-				//fmt.Print(".")
-				break MAIN
-			}
+		// case <-timoutcheck.C:
+		// 	if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
+		// 		pmap.Delete(key)
+		// 		//fmt.Print(".")
+		// 		break MAIN
+		// 	}
 
 		// the handlar is init with a first input
 		case packet := <-chans.Inputs:
-			timoutcheck.Stop()
-			timoutcheck = time.NewTicker(pmap.timeout)
+			// timoutcheck.Stop()
+			// timoutcheck = time.NewTicker(pmap.timeout)
 			stats.AppendStat(key, packet)
 			lasttime = packet.GetTime()
 
 		case control := <-chans.Control:
+			// order is important
 			if strings.Contains(control, "<dump>") {
 				chans.Results <- stats.Copy()
 			}
-			if strings.Contains(control, "<reset>") {
-				stats.Reset()
-			}
 			if strings.Contains(control, "<timeout>") {
-				;
+				clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout)));
+				pmap.Delete(key)
+				break MAIN
 			}
 			if strings.Contains(control, "<kill>") {
 				// fmt.Println("KILL ", key.Show())
 				pmap.Delete(key)
 				break MAIN
+			}
+			if strings.Contains(control, "<reset>") {
+				stats.Reset()
 			}
 
 		}

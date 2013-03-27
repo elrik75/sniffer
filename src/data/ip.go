@@ -51,11 +51,12 @@ func IpInt2Str(ip uint32) string {
 }
 
 func (key *Ipv4Key) Show() string {
-	return fmt.Sprintf("IPv4 src[%16x=%s] dst[%s] Protocol[%4x]",
-		key.SrcIp, IpInt2Str(key.SrcIp), IpInt2Str(key.DstIp), key.Protocol)
+	return fmt.Sprintf("IPv4 src[%x=%s] dst[%x=%s] Protocol[%4x]",
+		key.SrcIp, IpInt2Str(key.SrcIp), key.DstIp, IpInt2Str(key.DstIp), key.Protocol)
 }
 
 func (key *Ipv4Key) Number() uint16 {
+	// seem to be bugged
 	if key.SrcIp <= key.DstIp {
 		return uint16(key.SrcIp % uint32(LOCKNUM))
 	}
