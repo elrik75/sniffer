@@ -12,9 +12,9 @@ import (
 	"time"
 
 	// internal
-	"pcap"
-	"data"
 	"clock"
+	"data"
+	"pcap"
 )
 
 func main() {
@@ -127,7 +127,7 @@ func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
 		} else {
 			go launchParser(pkt)
 		}
-		if count % 1000000 == 0 {
+		if count%1000000 == 0 {
 			fmt.Println("num pkts=", count, "in", time.Now().Sub(timebegin))
 			timebegin = time.Now()
 		}
@@ -135,7 +135,6 @@ func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
 	fmt.Print("Nothing more to read\n")
 	quit_chan <- true
 }
-
 
 func launchParser(pkt *pcap.Packet) {
 	ethpkt := data.ParseEthernet(data.ETHMAP, pkt)
@@ -206,11 +205,10 @@ MAIN:
 	fmt.Println("controler ends,", time.Now().Sub(timebegin))
 }
 
-
 func create_file(datatype string) *os.File {
 	time := clock.Clock.GetForDump()
 	filename := fmt.Sprintf("dump_%s_%d.csv", datatype, time)
-	file, ok := os.OpenFile(filename, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0664)
+	file, ok := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0664)
 	if ok != nil {
 		fmt.Println("Dump File Error:", ok)
 	} else {
@@ -219,27 +217,13 @@ func create_file(datatype string) *os.File {
 	return nil
 }
 
-
 func write_stats(file *os.File, stat data.IStat) {
-	if file == nil { return }
-
-	var txt string
-	switch s := stat.(type) {
-	case *data.EthStat:
-		txt = fmt.Sprintf("%d|%d|%d|%d\n",
-			s.PacketsSrc, s.PacketsDst,
-			s.PayloadSizeSrc, s.PayloadSizeDst)
-		io.WriteString(file, txt)
-	case *data.IpStat:
-		txt = fmt.Sprintf("%d|%d|%d|%d\n",
-			s.PacketsSrc, s.PacketsDst,
-			s.PayloadSizeSrc, s.PayloadSizeDst)
-		io.WriteString(file, txt)
-	default:
-		fmt.Print("unexpected type %T", s)
+	if file == nil {
+		return
 	}
+	txt := stat.CSVRow()
+	io.WriteString(file, txt)
 }
-
 
 func close_file(file *os.File) {
 	if file != nil {

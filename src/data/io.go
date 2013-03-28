@@ -1,7 +1,7 @@
 package data
 
 import (
-//	"fmt"
+	//	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -12,7 +12,7 @@ import (
 
 // PACKET
 type IPacket interface {
-	Show()    string
+	Show() string
 	GetTime() time.Time
 }
 
@@ -26,6 +26,7 @@ type IKey interface {
 // STAT
 type IStat interface {
 	Show() string
+	CSVRow() string
 	Copy() IStat
 	Reset()
 	AppendStat(IKey, IPacket)
@@ -124,21 +125,11 @@ func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
 func Handler(pmap *PMap, key IKey, stats IStat) {
 
 	chans := pmap.Get(key)
-	// check if timeout
-	//fmt.Println(pmap.timeout)
-//	timoutcheck := time.NewTicker(pmap.timeout/2)
 	var lasttime time.Time
 
 MAIN:
 	for {
 		select {
-
-		// case <-timoutcheck.C:
-		// 	if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
-		// 		pmap.Delete(key)
-		// 		//fmt.Print(".")
-		// 		break MAIN
-		// 	}
 
 		// the handlar is init with a first input
 		case packet := <-chans.Inputs:
@@ -153,7 +144,7 @@ MAIN:
 				chans.Results <- stats.Copy()
 			}
 			if strings.Contains(control, "<timeout>") {
-				clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout)));
+				clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout)))
 				pmap.Delete(key)
 				break MAIN
 			}
@@ -165,8 +156,7 @@ MAIN:
 			if strings.Contains(control, "<reset>") {
 				stats.Reset()
 			}
-
 		}
 	}
-	close(chans.Control) 
+	close(chans.Control)
 }

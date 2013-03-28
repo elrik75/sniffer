@@ -1,12 +1,13 @@
 package data
 
 import (
-	"fmt"
 	"encoding/binary"
+	"fmt"
 	"time"
 
 	//internal
 	"pcap"
+	"utils"
 )
 
 // GLOBAL ETH MAP
@@ -14,15 +15,15 @@ var IPv4MAP *PMap
 
 // PACKET
 type Ipv4Packet struct {
-	EthPacket  *pcap.Packet
-	Protocol   uint8
-	Checksum   uint16
-	SrcIp      uint32
-	DstIp      uint32
-	Tos        uint8
-	Length     uint16
-	Payload    []byte
-	Ihl        uint8
+	EthPacket *pcap.Packet
+	Protocol  uint8
+	Checksum  uint16
+	SrcIp     uint32
+	DstIp     uint32
+	Tos       uint8
+	Length    uint16
+	Payload   []byte
+	Ihl       uint8
 }
 
 func (pkt *Ipv4Packet) Show() string {
@@ -36,23 +37,16 @@ func (pkt *Ipv4Packet) GetTime() time.Time {
 
 // MAP KEY
 type Ipv4Key struct {
-	Protocol   uint8
-	SrcIp      uint32
-	DstIp      uint32
-}
-
-func IpInt2Str(ip uint32) string {
-	return fmt.Sprintf("%d.%d.%d.%d",
-		byte(ip >> 24),
-		byte(ip >> 16),
-		byte(ip >> 8),
-		byte(ip),
-	)
+	Protocol uint8
+	SrcIp    uint32
+	DstIp    uint32
 }
 
 func (key *Ipv4Key) Show() string {
 	return fmt.Sprintf("IPv4 src[%x=%s] dst[%x=%s] Protocol[%4x]",
-		key.SrcIp, IpInt2Str(key.SrcIp), key.DstIp, IpInt2Str(key.DstIp), key.Protocol)
+		key.SrcIp, utils.EncodeIp(key.SrcIp),
+		key.DstIp, utils.EncodeIp(key.DstIp),
+		key.Protocol)
 }
 
 func (key *Ipv4Key) Number() uint16 {
@@ -72,10 +66,11 @@ func (key *Ipv4Key) Serial() string {
 
 // STATS
 type IpStat struct {
-	PacketsSrc        uint64
-	PacketsDst        uint64
-	PayloadSizeSrc    uint64
-	PayloadSizeDst    uint64
+	key            *Ipv4Key
+	PacketsSrc     uint64
+	PacketsDst     uint64
+	PayloadSizeSrc uint64
+	PayloadSizeDst uint64
 }
 
 func (ipstat *IpStat) Show() string {
@@ -84,19 +79,30 @@ func (ipstat *IpStat) Show() string {
 		ipstat.PacketsSrc, ipstat.PacketsDst)
 }
 
-func (ipstat *IpStat) Copy () IStat {
-	return &IpStat{ipstat.PacketsSrc, ipstat.PacketsDst,
-	    ipstat.PayloadSizeSrc, ipstat.PayloadSizeDst}
+func (ipstat *IpStat) CSVRow() string {
+	return fmt.Sprintf("%s|%s|%d|%d|%d|%d|%d\n",
+		utils.EncodeIp(ipstat.key.SrcIp),
+		utils.EncodeIp(ipstat.key.DstIp),
+		ipstat.key.Protocol,
+		ipstat.PayloadSizeSrc, ipstat.PayloadSizeDst,
+		ipstat.PacketsSrc, ipstat.PacketsDst)
 }
 
-func (ipstat *IpStat) Reset () {
+func (ipstat *IpStat) Copy() IStat {
+	return &IpStat{
+		ipstat.key,
+		ipstat.PacketsSrc, ipstat.PacketsDst,
+		ipstat.PayloadSizeSrc, ipstat.PayloadSizeDst}
+}
+
+func (ipstat *IpStat) Reset() {
 	ipstat.PayloadSizeSrc = 0
 	ipstat.PayloadSizeDst = 0
 	ipstat.PacketsSrc = 0
 	ipstat.PacketsDst = 0
 }
 
-func (ipstat *IpStat) AppendStat (key IKey, pkt IPacket) {
+func (ipstat *IpStat) AppendStat(key IKey, pkt IPacket) {
 	ipkey := key.(*Ipv4Key)
 	ippkt := pkt.(*Ipv4Packet)
 	if ippkt.SrcIp == ipkey.SrcIp {
@@ -129,6 +135,7 @@ func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
 		//fmt.Println("NEW routine:", key.Show())
 
 		stats := new(IpStat)
+		stats.key = &key
 		go Handler(ipmap, &key, stats)
 	}
 	chans.Inputs <- ip

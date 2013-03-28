@@ -1,8 +1,8 @@
 package data
 
 import (
-	"fmt"
 	"encoding/binary"
+	"fmt"
 	"pcap"
 	"utils"
 )
@@ -26,16 +26,15 @@ func (key *EthKey) Show() string {
 		key.SrcMac, key.DstMac, key.Type)
 }
 
-
 func (key *EthKey) Number() uint16 {
-	if key.SrcMac <=  key.DstMac {
+	if key.SrcMac <= key.DstMac {
 		return uint16(key.SrcMac % uint64(LOCKNUM))
 	}
-	return uint16(key.DstMac %  uint64(LOCKNUM))
+	return uint16(key.DstMac % uint64(LOCKNUM))
 }
 
 func (key *EthKey) Serial() string {
-	if key.SrcMac <=  key.DstMac {
+	if key.SrcMac <= key.DstMac {
 		return fmt.Sprintf("%x-%x-%x", key.SrcMac, key.DstMac, key.Type)
 	}
 	return fmt.Sprintf("%x-%x-%x", key.DstMac, key.SrcMac, key.Type)
@@ -44,10 +43,11 @@ func (key *EthKey) Serial() string {
 // STATS
 
 type EthStat struct {
+	key            *EthKey
 	PayloadSizeSrc uint64
 	PayloadSizeDst uint64
-	PacketsSrc uint64
-	PacketsDst uint64
+	PacketsSrc     uint64
+	PacketsDst     uint64
 }
 
 func (ethstat *EthStat) Show() string {
@@ -56,19 +56,31 @@ func (ethstat *EthStat) Show() string {
 		ethstat.PacketsSrc, ethstat.PacketsDst)
 }
 
-func (ethstat *EthStat) Copy () IStat {
-	return &EthStat{ethstat.PayloadSizeSrc, ethstat.PayloadSizeDst,
-		            ethstat.PacketsSrc, ethstat.PacketsDst}
+func (ethstat *EthStat) CSVRow() string {
+	return fmt.Sprintf("%s|%s|%d|%d|%d|%d|%d\n",
+		utils.EncodeMac(ethstat.key.SrcMac),
+		utils.EncodeMac(ethstat.key.DstMac),
+		ethstat.key.Type,
+		ethstat.PayloadSizeSrc, ethstat.PayloadSizeDst,
+		ethstat.PacketsSrc, ethstat.PacketsDst,
+	)
 }
 
-func (ethstat *EthStat) Reset () {
+func (ethstat *EthStat) Copy() IStat {
+	return &EthStat{
+		ethstat.key,
+		ethstat.PayloadSizeSrc, ethstat.PayloadSizeDst,
+		ethstat.PacketsSrc, ethstat.PacketsDst}
+}
+
+func (ethstat *EthStat) Reset() {
 	ethstat.PayloadSizeSrc = 0
 	ethstat.PayloadSizeDst = 0
 	ethstat.PacketsSrc = 0
 	ethstat.PacketsDst = 0
 }
 
-func (ethstat *EthStat) AppendStat (key IKey, pkt IPacket) {
+func (ethstat *EthStat) AppendStat(key IKey, pkt IPacket) {
 	ethkey := key.(*EthKey)
 	ethpkt := pkt.(*pcap.Packet)
 	if ethpkt.SrcMac == ethkey.SrcMac {
@@ -79,7 +91,6 @@ func (ethstat *EthStat) AppendStat (key IKey, pkt IPacket) {
 		ethstat.PacketsDst += 1
 	}
 }
-
 
 // PACKET PARSER
 func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *pcap.Packet {
@@ -97,7 +108,7 @@ func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *pcap.Packet {
 		shift = 4
 	}
 	pkt.Vlan = vlan
-	pkt.Type = int(binary.BigEndian.Uint16(pkt.Data[shift+12:shift+14]))
+	pkt.Type = int(binary.BigEndian.Uint16(pkt.Data[shift+12 : shift+14]))
 
 	max_size := utils.MinInt(len(pkt.Data), PAYLOAD_MAX+1)
 	pkt.Payload = make([]byte, PAYLOAD_MAX)
@@ -110,8 +121,9 @@ func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *pcap.Packet {
 	if is_new {
 		//fmt.Println("NEW routine:", key.Show())
 		stats := new(EthStat)
+		stats.key = &key
 		go Handler(ethmap, &key, stats)
 	}
-	chans.Inputs <-pkt
+	chans.Inputs <- pkt
 	return pkt
 }
