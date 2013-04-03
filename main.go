@@ -111,7 +111,7 @@ func create_reader(config map[string]string) *pcap.Pcap {
 			os.Exit(2)
 		}
 	} else {
-		fmt.Printf("usage: pcaptest [-i <iface> | -f <pcap file>]\n")
+		fmt.Printf("usage: pcaptest [-i <iface> | -r <pcap file>]\n")
 		os.Exit(3)
 	}
 	return pcapreader
@@ -121,12 +121,8 @@ func readPackets(pcapreader *pcap.Pcap, quit_chan chan bool) {
 	count := 0
 	timebegin := time.Now()
 	for pkt := pcapreader.Next(); pkt != nil; pkt = pcapreader.Next() {
+		go launchParser(pkt)
 		count += 1
-		if len(data.IPv4MAP.StatsChans) > 200000 {
-			launchParser(pkt)
-		} else {
-			go launchParser(pkt)
-		}
 		if count%1000000 == 0 {
 			fmt.Println("num pkts=", count, "in", time.Now().Sub(timebegin))
 			timebegin = time.Now()

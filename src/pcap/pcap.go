@@ -1,7 +1,7 @@
 package pcap
 
 /* copyright from https://github.com/akrennmair/gopcap */
-/* just modify the Packet structure */
+/* modification: change the Packet structure */
 
 /*
 #cgo LDFLAGS: -lpcap
