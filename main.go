@@ -69,7 +69,7 @@ func get_opts() map[string]string {
 }
 
 func active_profiling() {
-    fp, err := os.Create("/tmp/profiling")
+    fp, err := os.Create("profiling.pprof")
     if err != nil {
         fmt.Print(err)
         os.Exit(4)
