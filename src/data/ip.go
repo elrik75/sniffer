@@ -17,6 +17,7 @@ var IPv4MAP *PMap
 type Ipv4Packet struct {
     EthPacket *pcap.Packet
     Protocol  uint8
+	Id        uint16
     Checksum  uint16
     SrcIp     uint32
     DstIp     uint32
@@ -122,6 +123,7 @@ func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
     ip.EthPacket = pkt
     ip.Tos = pkt.Payload[1]
     ip.Length = binary.BigEndian.Uint16(pkt.Payload[2:4])
+	ip.Id = binary.BigEndian.Uint16(pkt.Payload[4:6])
     ip.Protocol = pkt.Payload[9]
     ip.Checksum = binary.BigEndian.Uint16(pkt.Payload[10:12])
     ip.SrcIp = binary.BigEndian.Uint32(pkt.Payload[12:16])

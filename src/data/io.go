@@ -1,7 +1,7 @@
 package data
 
 import (
-    //	"fmt"
+//    "fmt"
     "strings"
     "sync"
     "time"
@@ -85,17 +85,10 @@ func (pmap *PMap) Get(key IKey) *StatsChans {
     return pmap.unsafeGet(key)
 }
 
-func (pmap *PMap) GetAllStats() map[string]*StatsChans {
-    lock := pmap.GetLock()
-    lock.Lock()
-    defer lock.Unlock()
-    return pmap.StatsChans
-}
-
 func (pmap *PMap) Delete(key IKey) {
-    lock := pmap.GetLock()
-    lock.Lock()
-    defer lock.Unlock()
+    // lock := pmap.GetLock()
+    // lock.Lock()
+    // defer lock.Unlock()
     delete(pmap.StatsChans, key.Serial())
 }
 
@@ -144,12 +137,12 @@ MAIN:
                 chans.Results <- stats.Copy()
             }
             if strings.Contains(control, "<timeout>") {
-                clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout)))
-                pmap.Delete(key)
-                break MAIN
+                if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
+					pmap.Delete(key)
+					break MAIN
+				}
             }
             if strings.Contains(control, "<kill>") {
-                // fmt.Println("KILL ", key.Show())
                 pmap.Delete(key)
                 break MAIN
             }
@@ -158,5 +151,4 @@ MAIN:
             }
         }
     }
-    close(chans.Control)
 }

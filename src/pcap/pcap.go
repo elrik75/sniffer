@@ -42,7 +42,7 @@ func (p *Pcap) Next() (pkt *Packet) {
         paused = true
     }
     for p.Paused {
-        time.Sleep(10000000)
+        time.Sleep(1000000)
     }
 
     if paused {

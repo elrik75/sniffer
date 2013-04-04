@@ -7,6 +7,7 @@ import (
     "math"
     "os"
     "os/signal"
+	"runtime"
     "runtime/pprof"
     "syscall"
     "time"
@@ -19,6 +20,7 @@ import (
 
 func main() {
     fmt.Printf("pcap version: %s\n", pcap.Version())
+	fmt.Printf("Go version: %s\n", runtime.Version())
     config := get_opts()
     if config["listdevice"] == "true" {
         show_devices()
@@ -35,7 +37,7 @@ func main() {
 
     go signalCatcher(pcapreader)
     go readPackets(pcapreader, quit_chan)
-    controler(pcapreader, quit_chan)
+    controler(pcapreader, quit_chan, config)
 }
 
 func init_maps() {
@@ -51,15 +53,17 @@ func get_opts() map[string]string {
     config := make(map[string]string)
 
     var device, filename, expr string
-    var listdevice, profile bool
+    var listdevice, profile, debug bool
 
     flag.StringVar(&device, "i", "", "network interface")
     flag.StringVar(&filename, "r", "", "input pcap file")
     flag.StringVar(&expr, "e", "", "filter expression")
     flag.BoolVar(&listdevice, "l", false, "just list devices and exit")
+	flag.BoolVar(&debug, "d", false, "debug mode")
     flag.BoolVar(&profile, "profile", false, "activate profiling")
     flag.Parse()
 
+	config["debug"] = fmt.Sprintf("%t", debug)
     config["device"] = device
     config["filename"] = filename
     config["expr"] = expr
@@ -148,7 +152,7 @@ func signalCatcher(pcapreader *pcap.Pcap) {
     pcapreader.Close()
 }
 
-func controler(pcapreader *pcap.Pcap, quit_chan chan bool) {
+func controler(pcapreader *pcap.Pcap, quit_chan chan bool, config map[string]string) {
     timebegin := time.Now()
 
 MAIN:
@@ -166,7 +170,6 @@ MAIN:
             for _, chans := range data.IPv4MAP.StatsChans {
                 chans.Control <- "<kill>"
             }
-            fmt.Print("IP ends\n")
             break MAIN
 
         case <-clock.Clock.DumpChan:
@@ -174,31 +177,37 @@ MAIN:
             dumpbegin := time.Now()
 
             pcapreader.Paused = true
-            fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
+			if config["debug"] == "true" {
+				fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
+			}
             var fd *os.File
             fd = create_file("eth")
-            for _, chans := range data.ETHMAP.GetAllStats() {
+            for _, chans := range data.ETHMAP.StatsChans {
                 chans.Control <- "<dump><reset><timeout>"
                 result := <-chans.Results
-                write_stats(fd, result)
+				write_stats(fd, result)
             }
             close_file(fd)
 
-            fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
+			if config["debug"] == "true" {
+				fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
+			}
             fd = create_file("ipv4")
-            for _, chans := range data.IPv4MAP.GetAllStats() {
+            for _, chans := range data.IPv4MAP.StatsChans {
                 chans.Control <- "<dump><reset><timeout>"
                 result := <-chans.Results
-                write_stats(fd, result)
+				write_stats(fd, result)
             }
             close_file(fd)
             pcapreader.Paused = false
 
-            fmt.Println("<< END DUMPS ", time.Now().Sub(dumpbegin),
-                clock.Clock.Get(), "\n")
+			if config["debug"] == "true" {
+				fmt.Println("<< END DUMPS ", time.Now().Sub(dumpbegin),
+					clock.Clock.Get(), "\n")
+			}
         }
     }
-    fmt.Println("controler ends,", time.Now().Sub(timebegin))
+    fmt.Println("controler ends, total time:", time.Now().Sub(timebegin))
 }
 
 func create_file(datatype string) *os.File {
