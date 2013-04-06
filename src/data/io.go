@@ -19,9 +19,11 @@ type IPacket interface {
 // KEY
 type IKey interface {
     Show() string
-    Serial() string
+    Serial() ISerial
     Number() uint16
 }
+type ISerial interface {}
+
 
 // STAT
 type IStat interface {
@@ -47,7 +49,7 @@ const (
 type PMap struct {
     once       sync.Once
     mtx        *sync.Mutex
-    StatsChans map[string]*StatsChans
+    StatsChans map[ISerial]*StatsChans
     timeout    time.Duration
 }
 
@@ -57,7 +59,7 @@ func (pmap *PMap) GetLock() *sync.Mutex {
 
 func (pmap *PMap) Init(timeout time.Duration) {
     pmap.once.Do(func() {
-        pmap.StatsChans = make(map[string]*StatsChans, 2000)
+        pmap.StatsChans = make(map[ISerial]*StatsChans, 2000)
         pmap.mtx = new(sync.Mutex)
         pmap.timeout = timeout
     })

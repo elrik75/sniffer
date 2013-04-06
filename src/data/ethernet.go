@@ -33,11 +33,13 @@ func (key *EthKey) Number() uint16 {
     return uint16(key.DstMac % uint64(LOCKNUM))
 }
 
-func (key *EthKey) Serial() string {
+func (key *EthKey) Serial() ISerial {
     if key.SrcMac <= key.DstMac {
-        return fmt.Sprintf("%x-%x-%x", key.SrcMac, key.DstMac, key.Type)
+		return *key
+//        return fmt.Sprintf("%x-%x-%x", key.SrcMac, key.DstMac, key.Type)
     }
-    return fmt.Sprintf("%x-%x-%x", key.DstMac, key.SrcMac, key.Type)
+	return EthKey{key.Type, key.DstMac, key.SrcMac}
+//    return fmt.Sprintf("%x-%x-%x", key.DstMac, key.SrcMac, key.Type)
 }
 
 // STATS

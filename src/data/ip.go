@@ -16,6 +16,7 @@ var IPv4MAP *PMap
 // PACKET
 type Ipv4Packet struct {
     EthPacket *pcap.Packet
+
     Protocol  uint8
 	Id        uint16
     Checksum  uint16
@@ -58,11 +59,13 @@ func (key *Ipv4Key) Number() uint16 {
     return uint16(key.DstIp % uint32(LOCKNUM))
 }
 
-func (key *Ipv4Key) Serial() string {
+func (key *Ipv4Key) Serial() ISerial {
     if key.SrcIp <= key.DstIp {
-        return fmt.Sprintf("%x-%x-%x", key.SrcIp, key.DstIp, key.Protocol)
+		return *key
+        //return fmt.Sprintf("%x-%x-%x", key.SrcIp, key.DstIp, key.Protocol)
     }
-    return fmt.Sprintf("%x-%x-%x", key.DstIp, key.SrcIp, key.Protocol)
+	return Ipv4Key{key.Protocol, key.DstIp, key.SrcIp}
+    //return fmt.Sprintf("%x-%x-%x", key.DstIp, key.SrcIp, key.Protocol)
 }
 
 // STATS
@@ -115,7 +118,7 @@ func (ipstat *IpStat) AppendStat(key IKey, pkt IPacket) {
     }
 }
 
-// PACKET PARSER
+// IP PARSER
 func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
     ip := new(Ipv4Packet)
     //fmt.Println(pkt.Payload)
