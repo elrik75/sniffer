@@ -17,6 +17,7 @@ var IPv4MAP *PMap
 type Ipv4Packet struct {
     EthPacket *pcap.Packet
 
+    IHL       uint8
     Protocol  uint8
 	Id        uint16
     Checksum  uint16
@@ -25,7 +26,6 @@ type Ipv4Packet struct {
     Tos       uint8
     Length    uint16
     Payload   []byte
-    Ihl       uint8
 }
 
 func (pkt *Ipv4Packet) Show() string {
@@ -51,21 +51,11 @@ func (key *Ipv4Key) Show() string {
         key.Protocol)
 }
 
-func (key *Ipv4Key) Number() uint16 {
-    // seem to be bugged
-    if key.SrcIp <= key.DstIp {
-        return uint16(key.SrcIp % uint32(LOCKNUM))
-    }
-    return uint16(key.DstIp % uint32(LOCKNUM))
-}
-
 func (key *Ipv4Key) Serial() ISerial {
     if key.SrcIp <= key.DstIp {
 		return *key
-        //return fmt.Sprintf("%x-%x-%x", key.SrcIp, key.DstIp, key.Protocol)
     }
 	return Ipv4Key{key.Protocol, key.DstIp, key.SrcIp}
-    //return fmt.Sprintf("%x-%x-%x", key.DstIp, key.SrcIp, key.Protocol)
 }
 
 // STATS
@@ -124,6 +114,7 @@ func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
     //fmt.Println(pkt.Payload)
 
     ip.EthPacket = pkt
+	ip.IHL = uint8(pkt.Payload[0]) & 0x0F
     ip.Tos = pkt.Payload[1]
     ip.Length = binary.BigEndian.Uint16(pkt.Payload[2:4])
 	ip.Id = binary.BigEndian.Uint16(pkt.Payload[4:6])
@@ -132,7 +123,7 @@ func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
     ip.SrcIp = binary.BigEndian.Uint32(pkt.Payload[12:16])
     ip.DstIp = binary.BigEndian.Uint32(pkt.Payload[16:20])
 
-    ip.Payload = pkt.Payload[ip.Ihl*4:]
+    ip.Payload = pkt.Payload[ip.IHL*4:]
 
     key := Ipv4Key{ip.Protocol, ip.SrcIp, ip.DstIp}
     is_new, chans := ipmap.InitValue(&key)
@@ -144,4 +135,8 @@ func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
         go Handler(ipmap, &key, stats)
     }
     chans.Inputs <- ip
+
+	if ip.Protocol == 0x6 {
+		go TcpParser(TcpMAP, ip, &key)
+	}
 }

@@ -20,7 +20,7 @@ type IPacket interface {
 type IKey interface {
     Show() string
     Serial() ISerial
-    Number() uint16
+    // Number() uint16
 }
 type ISerial interface {}
 

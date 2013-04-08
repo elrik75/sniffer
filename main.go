@@ -19,8 +19,6 @@ import (
 )
 
 func main() {
-    fmt.Printf("pcap version: %s\n", pcap.Version())
-	fmt.Printf("Go version: %s\n", runtime.Version())
     config := get_opts()
     if config["listdevice"] == "true" {
         show_devices()
@@ -30,6 +28,11 @@ func main() {
         active_profiling()
         defer pprof.StopCPUProfile()
     }
+
+	if config["debug"] == "true" {
+		fmt.Printf("pcap version: %s\n", pcap.Version())
+		fmt.Printf("Go version: %s\n", runtime.Version())
+	}
 
     init_maps()
     pcapreader := create_reader(config)
@@ -46,6 +49,8 @@ func init_maps() {
     data.ETHMAP.Init(seconds_60)
     data.IPv4MAP = new(data.PMap)
     data.IPv4MAP.Init(seconds_60)
+	data.TcpMAP = new(data.PMap)
+	data.TcpMAP.Init(seconds_60)
     clock.InitClock()
 }
 
@@ -170,6 +175,10 @@ MAIN:
             for _, chans := range data.IPv4MAP.StatsChans {
                 chans.Control <- "<kill>"
             }
+			fmt.Printf("TCP routines: %d\n", len(data.TcpMAP.StatsChans))
+            for _, chans := range data.TcpMAP.StatsChans {
+                chans.Control <- "<kill>"
+            }
             break MAIN
 
         case <-clock.Clock.DumpChan:
@@ -177,6 +186,8 @@ MAIN:
             dumpbegin := time.Now()
 
             pcapreader.Paused = true
+
+			// ETHERNET
 			if config["debug"] == "true" {
 				fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
 			}
@@ -189,6 +200,7 @@ MAIN:
             }
             close_file(fd)
 
+			// IP
 			if config["debug"] == "true" {
 				fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
 			}
@@ -199,8 +211,20 @@ MAIN:
 				write_stats(fd, result)
             }
             close_file(fd)
-            pcapreader.Paused = false
 
+			// TCP
+			if config["debug"] == "true" {
+				fmt.Printf("TCP routines: %d\n", len(data.TcpMAP.StatsChans))
+			}
+			fd = create_file("tcp")
+			for _, chans := range data.TcpMAP.StatsChans {
+				chans.Control <- "<dump><reset><timeout>"
+                result := <-chans.Results
+				write_stats(fd, result)
+			}
+			close_file(fd)
+
+            pcapreader.Paused = false
 			if config["debug"] == "true" {
 				fmt.Println("<< END DUMPS ", time.Now().Sub(dumpbegin),
 					clock.Clock.Get(), "\n")
