@@ -3,7 +3,6 @@ package main
 import (
     "flag"
     "fmt"
-    "io"
     "math"
     "os"
     "os/signal"
@@ -16,6 +15,7 @@ import (
     "clock"
     "data"
     "pcap"
+	"dump"
 )
 
 func main() {
@@ -57,12 +57,13 @@ func init_maps() {
 func get_opts() map[string]string {
     config := make(map[string]string)
 
-    var device, filename, expr string
+    var device, filename, expr, dumpproto string
     var listdevice, profile, debug bool
 
     flag.StringVar(&device, "i", "", "network interface")
     flag.StringVar(&filename, "r", "", "input pcap file")
     flag.StringVar(&expr, "e", "", "filter expression")
+    flag.StringVar(&dumpproto, "p", "tcp", "protocols to dump")
     flag.BoolVar(&listdevice, "l", false, "just list devices and exit")
 	flag.BoolVar(&debug, "d", false, "debug mode")
     flag.BoolVar(&profile, "profile", false, "activate profiling")
@@ -74,6 +75,7 @@ func get_opts() map[string]string {
     config["expr"] = expr
     config["listdevice"] = fmt.Sprintf("%t", listdevice)
     config["profile"] = fmt.Sprintf("%t", profile)
+	config["dumpproto"] = dumpproto
     return config
 }
 
@@ -184,47 +186,12 @@ MAIN:
         case <-clock.Clock.DumpChan:
 
             dumpbegin := time.Now()
-
             pcapreader.Paused = true
-
-			// ETHERNET
-			if config["debug"] == "true" {
-				fmt.Printf("ETH routines: %d\n", len(data.ETHMAP.StatsChans))
-			}
-            var fd *os.File
-            fd = create_file("eth")
-            for _, chans := range data.ETHMAP.StatsChans {
-                chans.Control <- "<dump><reset><timeout>"
-                result := <-chans.Results
-				write_stats(fd, result)
-            }
-            close_file(fd)
-
-			// IP
-			if config["debug"] == "true" {
-				fmt.Printf("IP  routines: %d\n", len(data.IPv4MAP.StatsChans))
-			}
-            fd = create_file("ipv4")
-            for _, chans := range data.IPv4MAP.StatsChans {
-                chans.Control <- "<dump><reset><timeout>"
-                result := <-chans.Results
-				write_stats(fd, result)
-            }
-            close_file(fd)
-
-			// TCP
-			if config["debug"] == "true" {
-				fmt.Printf("TCP routines: %d\n", len(data.TcpMAP.StatsChans))
-			}
-			fd = create_file("tcp")
-			for _, chans := range data.TcpMAP.StatsChans {
-				chans.Control <- "<dump><reset><timeout>"
-                result := <-chans.Results
-				write_stats(fd, result)
-			}
-			close_file(fd)
-
+			dump.WriteEthernet(config, data.ETHMAP)
+			dump.WriteIpv4(config, data.IPv4MAP)
+			dump.WriteTcp(config, data.TcpMAP)
             pcapreader.Paused = false
+
 			if config["debug"] == "true" {
 				fmt.Println("<< END DUMPS ", time.Now().Sub(dumpbegin),
 					clock.Clock.Get(), "\n")
@@ -234,28 +201,3 @@ MAIN:
     fmt.Println("controler ends, total time:", time.Now().Sub(timebegin))
 }
 
-func create_file(datatype string) *os.File {
-    time := clock.Clock.GetForDump()
-    filename := fmt.Sprintf("dump_%s_%d.csv", datatype, time)
-    file, ok := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0664)
-    if ok != nil {
-        fmt.Println("Dump File Error:", ok)
-    } else {
-        return file
-    }
-    return nil
-}
-
-func write_stats(file *os.File, stat data.IStat) {
-    if file == nil {
-        return
-    }
-    txt := stat.CSVRow()
-    io.WriteString(file, txt)
-}
-
-func close_file(file *os.File) {
-    if file != nil {
-        file.Close()
-    }
-}
