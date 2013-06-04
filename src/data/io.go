@@ -1,7 +1,7 @@
 package data
 
 import (
-//    "fmt"
+    //    "fmt"
     "strings"
     "sync"
     "time"
@@ -22,8 +22,7 @@ type IKey interface {
     Serial() ISerial
     // Number() uint16
 }
-type ISerial interface {}
-
+type ISerial interface{}
 
 // STAT
 type IStat interface {
@@ -91,7 +90,14 @@ func (pmap *PMap) Delete(key IKey) {
     // lock := pmap.GetLock()
     // lock.Lock()
     // defer lock.Unlock()
-    delete(pmap.StatsChans, key.Serial())
+    // defer func() {
+    // 	fmt.Println("Cannot delete", key.Show())
+    // 	if x := recover(); x != nil {
+    // 		fmt.Println("run time panic:", x)
+    // 	}
+    // }()
+    serial := key.Serial()
+    delete(pmap.StatsChans, serial)
 }
 
 func (pmap *PMap) InitValue(key IKey) (bool, *StatsChans) {
@@ -135,14 +141,17 @@ MAIN:
 
         case control := <-chans.Control:
             // order is important
-            if strings.Contains(control, "<dump>") {
-                chans.Results <- stats.Copy()
-            }
             if strings.Contains(control, "<timeout>") {
                 if clock.Clock.Get().After(lasttime.Add(time.Duration(pmap.timeout))) {
-					pmap.Delete(key)
-					break MAIN
-				}
+                    pmap.Delete(key)
+                    if strings.Contains(control, "<dump>") {
+                        chans.Results <- nil
+                    }
+                    break MAIN
+                }
+            }
+            if strings.Contains(control, "<dump>") {
+                chans.Results <- stats.Copy()
             }
             if strings.Contains(control, "<kill>") {
                 pmap.Delete(key)

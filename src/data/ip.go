@@ -3,6 +3,7 @@ package data
 import (
     "encoding/binary"
     "fmt"
+    "strings"
     "time"
 
     //internal
@@ -17,15 +18,15 @@ var IPv4MAP *PMap
 type Ipv4Packet struct {
     EthPacket *pcap.Packet
 
-    IHL       uint8
-    Protocol  uint8
-	Id        uint16
-    Checksum  uint16
-    SrcIp     uint32
-    DstIp     uint32
-    Tos       uint8
-    Length    uint16
-    Payload   []byte
+    IHL      uint8
+    Protocol uint8
+    Id       uint16
+    Checksum uint16
+    SrcIp    uint32
+    DstIp    uint32
+    Tos      uint8
+    Length   uint16
+    Payload  []byte
 }
 
 func (pkt *Ipv4Packet) Show() string {
@@ -53,9 +54,9 @@ func (key *Ipv4Key) Show() string {
 
 func (key *Ipv4Key) Serial() ISerial {
     if key.SrcIp <= key.DstIp {
-		return *key
+        return *key
     }
-	return Ipv4Key{key.Protocol, key.DstIp, key.SrcIp}
+    return Ipv4Key{key.Protocol, key.DstIp, key.SrcIp}
 }
 
 // STATS
@@ -109,15 +110,15 @@ func (ipstat *IpStat) AppendStat(key IKey, pkt IPacket) {
 }
 
 // IP PARSER
-func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
+func ParseIpv4(ipmap *PMap, pkt *pcap.Packet, config map[string]string) {
     ip := new(Ipv4Packet)
     //fmt.Println(pkt.Payload)
 
     ip.EthPacket = pkt
-	ip.IHL = uint8(pkt.Payload[0]) & 0x0F
+    ip.IHL = uint8(pkt.Payload[0]) & 0x0F
     ip.Tos = pkt.Payload[1]
     ip.Length = binary.BigEndian.Uint16(pkt.Payload[2:4])
-	ip.Id = binary.BigEndian.Uint16(pkt.Payload[4:6])
+    ip.Id = binary.BigEndian.Uint16(pkt.Payload[4:6])
     ip.Protocol = pkt.Payload[9]
     ip.Checksum = binary.BigEndian.Uint16(pkt.Payload[10:12])
     ip.SrcIp = binary.BigEndian.Uint32(pkt.Payload[12:16])
@@ -126,17 +127,20 @@ func ParseIpv4(ipmap *PMap, pkt *pcap.Packet) {
     ip.Payload = pkt.Payload[ip.IHL*4:]
 
     key := Ipv4Key{ip.Protocol, ip.SrcIp, ip.DstIp}
-    is_new, chans := ipmap.InitValue(&key)
-    if is_new {
-        //fmt.Println("NEW routine:", key.Show())
 
-        stats := new(IpStat)
-        stats.key = &key
-        go Handler(ipmap, &key, stats)
+    if strings.Contains(config["dumpproto"], "ip") {
+        is_new, chans := ipmap.InitValue(&key)
+        if is_new {
+            //fmt.Println("NEW routine:", key.Show())
+
+            stats := new(IpStat)
+            stats.key = &key
+            go Handler(ipmap, &key, stats)
+        }
+        chans.Inputs <- ip
     }
-    chans.Inputs <- ip
 
-	if ip.Protocol == 0x6 {
-		go TcpParser(TcpMAP, ip, &key)
-	}
+    if ip.Protocol == 0x6 {
+        TcpParser(TcpMAP, ip, &key, config)
+    }
 }

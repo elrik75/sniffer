@@ -3,6 +3,8 @@ package data
 import (
     "encoding/binary"
     "fmt"
+	"strings"
+
     "pcap"
     "utils"
 )
@@ -95,7 +97,7 @@ func (ethstat *EthStat) AppendStat(key IKey, pkt IPacket) {
 }
 
 // PACKET PARSER
-func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *pcap.Packet {
+func ParseEthernet(ethmap *PMap, pkt *pcap.Packet, config map[string]string) *pcap.Packet {
 
     pkt.DestMac = utils.DecodeMac(pkt.Data[0:6])
     pkt.SrcMac = utils.DecodeMac(pkt.Data[6:12])
@@ -116,16 +118,20 @@ func ParseEthernet(ethmap *PMap, pkt *pcap.Packet) *pcap.Packet {
     pkt.Payload = make([]byte, PAYLOAD_MAX)
     copy(pkt.Payload, pkt.Data[shift+14:max_size])
     pkt.Data = nil
-    //fmt.Println(pkt.Show())
-    key := EthKey{pkt.Type, pkt.SrcMac, pkt.DestMac}
 
-    is_new, chans := ethmap.InitValue(&key)
-    if is_new {
-        //fmt.Println("NEW routine:", key.Show())
-        stats := new(EthStat)
-        stats.key = &key
-        go Handler(ethmap, &key, stats)
-    }
-    chans.Inputs <- pkt
+	if strings.Contains(config["dumpproto"], "eth") {
+		//fmt.Println(pkt.Show())
+		key := EthKey{pkt.Type, pkt.SrcMac, pkt.DestMac}
+
+		is_new, chans := ethmap.InitValue(&key)
+		if is_new {
+			//fmt.Println("NEW routine:", key.Show())
+			stats := new(EthStat)
+			stats.key = &key
+			go Handler(ethmap, &key, stats)
+		}
+		chans.Inputs <- pkt
+	}
+
     return pkt
 }
